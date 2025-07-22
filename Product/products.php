@@ -1,9 +1,12 @@
 <?php
 include '../db.php';
 include '../nav.php';
-$result = $conn->query("SELECT * FROM products");
-?>
+$result = false;
 
+if ($conn) {
+    $result = $conn->query("SELECT * FROM products");
+}
+?>
 <!DOCTYPE html>
 <html>
 <head>

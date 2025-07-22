@@ -16,7 +16,10 @@ switch ($sort) {
   default:                    $order_by = 'created_at DESC'; break;
 }
 
-$result = $conn->query("SELECT * FROM kols ORDER BY $order_by");
+$result = false;
+if ($conn) {
+  $result = $conn->query("SELECT * FROM kols ORDER BY $order_by");
+}
 ?>
 
 <!DOCTYPE html>
@@ -34,7 +37,7 @@ $result = $conn->query("SELECT * FROM kols ORDER BY $order_by");
   <div class="mb-3 d-flex flex-wrap gap-2 justify-content-center">
     <a href="add_kol.php" class="btn btn-success">➕ 新增 KOL</a>
     <a href="kol_transactions.php" class="btn btn-warning">📜 合作紀錄</a>
-    <a href="add_kol_gift.php" class="btn btn-primary">🎁 贈送公關台</a>
+    <a href="add_kol_gift.php" class="btn btn-primary">🏱 贈送公閣臺</a>
     <a href="kol_commissions.php" class="btn btn-info">🤑 KOL 分潤</a>
   </div>
 
@@ -61,26 +64,32 @@ $result = $conn->query("SELECT * FROM kols ORDER BY $order_by");
         <tr>
           <th>姓名</th>
           <th>分潤 %</th>
-          <th>第幾台後分潤</th>
+          <th>第幾臺後分潤</th>
           <th>備註</th>
           <th>建立時間</th>
           <th>操作</th>
         </tr>
       </thead>
       <tbody>
-        <?php while($row = $result->fetch_assoc()): ?>
-        <tr>
-          <td><?= htmlspecialchars($row['name']) ?></td>
-          <td><?= htmlspecialchars($row['commission_percent']) ?>%</td>
-          <td><?= htmlspecialchars($row['commission_start_after']) ?> 台後</td>
-          <td><?= htmlspecialchars($row['note']) ?></td>
-          <td><?= htmlspecialchars($row['created_at']) ?></td>
-          <td>
-            <a href="edit_kol.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-warning">編輯</a>
-            <a href="delete_kol.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('確定要刪除這個 KOL 嗎？');">刪除</a>
-          </td>
-        </tr>
-        <?php endwhile; ?>
+        <?php if ($result): ?>
+          <?php while($row = $result->fetch_assoc()): ?>
+          <tr>
+            <td><?= htmlspecialchars($row['name']) ?></td>
+            <td><?= htmlspecialchars($row['commission_percent']) ?>%</td>
+            <td><?= htmlspecialchars($row['commission_start_after']) ?> 臺後</td>
+            <td><?= htmlspecialchars($row['note']) ?></td>
+            <td><?= htmlspecialchars($row['created_at']) ?></td>
+            <td>
+              <a href="edit_kol.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-warning">編輯</a>
+              <a href="delete_kol.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('確定要刪除這個 KOL 嗎？');">刪除</a>
+            </td>
+          </tr>
+          <?php endwhile; ?>
+        <?php else: ?>
+          <tr>
+            <td colspan="6" class="text-muted">❌ 無法載入資料（資料庫未連線或查詢失敗）</td>
+          </tr>
+        <?php endif; ?>
       </tbody>
     </table>
   </div>

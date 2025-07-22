@@ -2,145 +2,78 @@
 include '../db.php';
 include '../nav.php';
 
-// ---------------------------------------
-// 分頁處理
-// ---------------------------------------
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-$per_page = 10;
-$offset = ($page - 1) * $per_page;
-
-// ---------------------------------------
-// 搜尋與排序處理
-// ---------------------------------------
-$search = trim($_GET['search'] ?? '');
-$sort = $_GET['sort'] ?? 'created_at_desc';
-$where = [];
-$params = [];
-$types = '';
-
-// 搜尋條件
-if (!empty($search)) {
-    $where[] = "(p.model LIKE ? OR s.note LIKE ?)";
-    $params[] = '%' . $search . '%';
-    $params[] = '%' . $search . '%';
-    $types .= 'ss';
-}
-
-// 排序選項
-switch ($sort) {
-    case 'price_asc':    $sort_sql = 's.price ASC'; break;
-    case 'price_desc':   $sort_sql = 's.price DESC'; break;
-    case 'shipped_asc':  $sort_sql = 's.shipped ASC'; break;
-    case 'shipped_desc': $sort_sql = 's.shipped DESC'; break;
-    default:             $sort_sql = 's.created_at DESC'; break;
-}
-
-$where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-
-// ---------------------------------------
-// 取得總筆數
-// ---------------------------------------
-$count_sql = "SELECT COUNT(*) AS total FROM sales s JOIN products p ON s.product_id = p.id $where_clause";
-if ($params) {
-    $stmt = $conn->prepare($count_sql);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $total_rows = $stmt->get_result()->fetch_assoc()['total'];
+if (!$conn) {
+    // 模擬空資料，避免程式錯誤
+    $result = new class {
+        function fetch_assoc() { return false; }
+    };
+    $total_quantity = $shipped_quantity = $unshipped_quantity = 0;
+    $gift_quantity = $unshipped_gift_quantity = 0;
+    $total_pages = 1;
 } else {
-    $total_rows = $conn->query($count_sql)->fetch_assoc()['total'];
-}
-$total_pages = ceil($total_rows / $per_page);
+    // 原本的資料庫邏輯...
+    // --- 分頁處理 ---
+    $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+    $per_page = 10;
+    $offset = ($page - 1) * $per_page;
 
-// ---------------------------------------
-// 計算已寄出與未寄出數量（基於 quantity 欄位）
-// ---------------------------------------
-$shipped_where = $where ? $where : [];
-$shipped_where[] = "s.shipped = ?";
-$params_shipped = $params;
-$types_shipped = $types;
+    // --- 搜尋與排序處理 ---
+    $search = trim($_GET['search'] ?? '');
+    $sort = $_GET['sort'] ?? 'created_at_desc';
+    $where = [];
+    $params = [];
+    $types = '';
 
-// 已寄出數量
-$params_shipped[] = 1; // shipped = 1
-$types_shipped .= 'i';
-$shipped_sql = "SELECT SUM(s.quantity) AS shipped_quantity FROM sales s JOIN products p ON s.product_id = p.id WHERE " . implode(' AND ', $shipped_where);
-if ($params_shipped) {
-    $stmt = $conn->prepare($shipped_sql);
-    $stmt->bind_param($types_shipped, ...$params_shipped);
-    $stmt->execute();
-    $shipped_quantity = $stmt->get_result()->fetch_assoc()['shipped_quantity'] ?? 0;
-} else {
-    $shipped_quantity = $conn->query($shipped_sql)->fetch_assoc()['shipped_quantity'] ?? 0;
-}
+    if (!empty($search)) {
+        $where[] = "(p.model LIKE ? OR s.note LIKE ?)";
+        $params[] = '%' . $search . '%';
+        $params[] = '%' . $search . '%';
+        $types .= 'ss';
+    }
 
-// 未寄出數量
-$params_unshipped = $params;
-$params_unshipped[] = 0; // shipped = 0
-$types_unshipped = $types . 'i';
-$unshipped_sql = "SELECT SUM(s.quantity) AS unshipped_quantity FROM sales s JOIN products p ON s.product_id = p.id WHERE " . implode(' AND ', $shipped_where);
-if ($params_unshipped) {
-    $stmt = $conn->prepare($unshipped_sql);
-    $stmt->bind_param($types_unshipped, ...$params_unshipped);
-    $stmt->execute();
-    $unshipped_quantity = $stmt->get_result()->fetch_assoc()['unshipped_quantity'] ?? 0;
-} else {
-    $unshipped_quantity = $conn->query($unshipped_sql)->fetch_assoc()['unshipped_quantity'] ?? 0;
-}
-// ---------------------------------------
-// 額外統計：總銷售量、公關台數量、未寄出公關台數量
-// ---------------------------------------
-$total_sql = "SELECT SUM(quantity) AS total_qty FROM sales s JOIN products p ON s.product_id = p.id $where_clause";
-if ($params) {
-    $stmt = $conn->prepare($total_sql);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $total_quantity = $stmt->get_result()->fetch_assoc()['total_qty'] ?? 0;
-} else {
-    $total_quantity = $conn->query($total_sql)->fetch_assoc()['total_qty'] ?? 0;
-}
+    switch ($sort) {
+        case 'price_asc':    $sort_sql = 's.price ASC'; break;
+        case 'price_desc':   $sort_sql = 's.price DESC'; break;
+        case 'shipped_asc':  $sort_sql = 's.shipped ASC'; break;
+        case 'shipped_desc': $sort_sql = 's.shipped DESC'; break;
+        default:             $sort_sql = 's.created_at DESC'; break;
+    }
 
-// 公關台 = note 包含「公關贈送給」
-$gift_sql = "SELECT SUM(quantity) AS gift_qty FROM sales s JOIN products p ON s.product_id = p.id $where_clause" . ($where_clause ? " AND" : " WHERE") . " s.note LIKE '%公關贈送給%'";
-if ($params) {
-    $stmt = $conn->prepare($gift_sql);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $gift_quantity = $stmt->get_result()->fetch_assoc()['gift_qty'] ?? 0;
-} else {
-    $gift_quantity = $conn->query($gift_sql)->fetch_assoc()['gift_qty'] ?? 0;
-}
+    $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
-// 未寄出公關台
-$unshipped_gift_sql = "SELECT SUM(quantity) AS unshipped_gift_qty FROM sales s JOIN products p ON s.product_id = p.id $where_clause" . ($where_clause ? " AND" : " WHERE") . " s.note LIKE '%公關贈送給%' AND s.shipped = 0";
-if ($params) {
-    $stmt = $conn->prepare($unshipped_gift_sql);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $unshipped_gift_quantity = $stmt->get_result()->fetch_assoc()['unshipped_gift_qty'] ?? 0;
-} else {
-    $unshipped_gift_quantity = $conn->query($unshipped_gift_sql)->fetch_assoc()['unshipped_gift_qty'] ?? 0;
+    function getValue($sql, $types = '', $params = []) {
+        global $conn;
+        if ($params) {
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param($types, ...$params);
+            $stmt->execute();
+            return $stmt->get_result()->fetch_assoc();
+        } else {
+            return $conn->query($sql)->fetch_assoc();
+        }
+    }
+
+    $total_rows = getValue("SELECT COUNT(*) AS total FROM sales s JOIN products p ON s.product_id = p.id $where_clause", $types, $params)['total'];
+    $total_pages = ceil($total_rows / $per_page);
+
+    // 各類數量
+    $shipped_quantity = getValue("SELECT SUM(s.quantity) AS shipped_quantity FROM sales s JOIN products p ON s.product_id = p.id $where_clause" . ($where_clause ? " AND" : " WHERE") . " s.shipped = 1", $types . 'i', [...$params, 1])['shipped_quantity'] ?? 0;
+    $unshipped_quantity = getValue("SELECT SUM(s.quantity) AS unshipped_quantity FROM sales s JOIN products p ON s.product_id = p.id $where_clause" . ($where_clause ? " AND" : " WHERE") . " s.shipped = 0", $types . 'i', [...$params, 0])['unshipped_quantity'] ?? 0;
+    $total_quantity = getValue("SELECT SUM(quantity) AS total_qty FROM sales s JOIN products p ON s.product_id = p.id $where_clause", $types, $params)['total_qty'] ?? 0;
+    $gift_quantity = getValue("SELECT SUM(quantity) AS gift_qty FROM sales s JOIN products p ON s.product_id = p.id $where_clause" . ($where_clause ? " AND" : " WHERE") . " s.note LIKE '%\u516c\u95d6\u8d08\u9001\u7d66%'", $types, $params)['gift_qty'] ?? 0;
+    $unshipped_gift_quantity = getValue("SELECT SUM(quantity) AS unshipped_gift_qty FROM sales s JOIN products p ON s.product_id = p.id $where_clause" . ($where_clause ? " AND" : " WHERE") . " s.note LIKE '%\u516c\u95d6\u8d08\u9001\u7d66%' AND s.shipped = 0", $types, $params)['unshipped_gift_qty'] ?? 0;
+
+    $data_sql = "SELECT s.*, p.model FROM sales s JOIN products p ON s.product_id = p.id $where_clause ORDER BY $sort_sql LIMIT $per_page OFFSET $offset";
+    if ($params) {
+        $stmt = $conn->prepare($data_sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } else {
+        $result = $conn->query($data_sql);
+    }
 }
 
-
-// ---------------------------------------
-// 查詢當前頁面資料
-// ---------------------------------------
-$data_sql = "
-    SELECT s.*, p.model 
-    FROM sales s
-    JOIN products p ON s.product_id = p.id
-    $where_clause
-    ORDER BY $sort_sql
-    LIMIT $per_page OFFSET $offset
-";
-if ($params) {
-    $stmt = $conn->prepare($data_sql);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $result = $stmt->get_result();
-} else {
-    $result = $conn->query($data_sql);
-}
-?>
 
 <!DOCTYPE html>
 <html lang="zh-TW">

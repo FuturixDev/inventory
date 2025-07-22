@@ -20,7 +20,7 @@ if ($conn) {
   <h2 class="mb-4">📦 產品列表</h2>
 
   <div class="mb-3 d-flex flex-wrap gap-2">
-    <a href="/inventory-system/dashboard.php" class="btn btn-secondary">← 回系統總覽</a>
+    <a href="../dashboard.php" class="btn btn-secondary">← 回系統總覽</a>
     <a href="add_product.php" class="btn btn-success">➕ 新增產品</a>
     <a href="inventory_log.php" class="btn btn-primary">📥 進出貨登錄</a>
     <a href="inventory_history.php" class="btn btn-warning">📜 庫存紀錄</a>
@@ -41,46 +41,56 @@ if ($conn) {
         </tr>
       </thead>
       <tbody>
-      <?php while($row = $result->fetch_assoc()): 
-        $product_id = $row['id'];
+      <?php if ($result && $result->num_rows > 0): ?>
+        <?php while($row = $result->fetch_assoc()): 
+          $product_id = $row['id'];
+          $total_in_qty = 0;
+          $total_in_cost = 0;
+          $stock = 0;
+          $avg_cost = 0;
 
-        // 取得進貨成本與總進貨數量
-        $stmt = $conn->prepare("
-          SELECT 
-            SUM(CASE WHEN change_type = 'in' THEN quantity ELSE 0 END) AS total_in_qty,
-            SUM(CASE WHEN change_type = 'in' THEN quantity * unit_cost ELSE 0 END) AS total_in_cost,
-            SUM(CASE WHEN change_type = 'in' THEN quantity ELSE 0 END) -
-            SUM(CASE WHEN change_type = 'out' THEN quantity ELSE 0 END) AS stock
-          FROM inventory_logs
-          WHERE product_id = ?
-        ");
-        $stmt->bind_param("i", $product_id);
-        $stmt->execute();
-        $result2 = $stmt->get_result()->fetch_assoc();
+          if ($conn) {
+              $stmt = $conn->prepare("
+                SELECT 
+                  SUM(CASE WHEN change_type = 'in' THEN quantity ELSE 0 END) AS total_in_qty,
+                  SUM(CASE WHEN change_type = 'in' THEN quantity * unit_cost ELSE 0 END) AS total_in_cost,
+                  SUM(CASE WHEN change_type = 'in' THEN quantity ELSE 0 END) -
+                  SUM(CASE WHEN change_type = 'out' THEN quantity ELSE 0 END) AS stock
+                FROM inventory_logs
+                WHERE product_id = ?
+              ");
+              $stmt->bind_param("i", $product_id);
+              $stmt->execute();
+              $result2 = $stmt->get_result()->fetch_assoc();
 
-        $total_in_qty = $result2['total_in_qty'] ?? 0;
-        $total_in_cost = $result2['total_in_cost'] ?? 0;
-        $stock = $result2['stock'] ?? 0;
-
-        $avg_cost = ($total_in_qty > 0) ? $total_in_cost / $total_in_qty : 0;
-      ?>
+              $total_in_qty = $result2['total_in_qty'] ?? 0;
+              $total_in_cost = $result2['total_in_cost'] ?? 0;
+              $stock = $result2['stock'] ?? 0;
+              $avg_cost = ($total_in_qty > 0) ? $total_in_cost / $total_in_qty : 0;
+          }
+        ?>
+          <tr>
+            <td><?= $row['id'] ?></td>
+            <td><?= htmlspecialchars($row['model']) ?></td>
+            <td><?= htmlspecialchars($row['name']) ?></td>
+            <td>$<?= number_format($avg_cost, 2) ?></td>
+            <td><?= $stock ?></td>
+            <td>$<?= number_format($total_in_cost, 2) ?></td>
+            <td><?= $row['created_at'] ?></td>
+            <td>
+              <a href="delete_product.php?id=<?= $row['id'] ?>"
+                class="btn btn-sm btn-danger"
+                onclick="return confirm('確定要刪除這個產品嗎？');">
+                刪除
+              </a>
+            </td>
+          </tr>
+        <?php endwhile; ?>
+      <?php else: ?>
         <tr>
-          <td><?= $row['id'] ?></td>
-          <td><?= htmlspecialchars($row['model']) ?></td>
-          <td><?= htmlspecialchars($row['name']) ?></td>
-          <td>$<?= number_format($avg_cost, 2) ?></td>
-          <td><?= $stock ?></td>
-          <td>$<?= number_format($total_in_cost, 2) ?></td>
-          <td><?= $row['created_at'] ?></td>
-          <td>
-            <a href="delete_product.php?id=<?= $row['id'] ?>"
-               class="btn btn-sm btn-danger"
-               onclick="return confirm('確定要刪除這個產品嗎？');">
-               刪除
-            </a>
-          </td>
+          <td colspan="8" class="text-muted">⚠️ 尚未連接資料庫或查無資料。</td>
         </tr>
-      <?php endwhile; ?>
+      <?php endif; ?>
       </tbody>
     </table>
   </div>

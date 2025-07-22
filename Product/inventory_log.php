@@ -2,7 +2,9 @@
 include '../db.php';
 include '../nav.php';
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+$products = false;
+
+if ($conn && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $product_id = $_POST['product_id'];
     $type = $_POST['change_type'];
     $qty = $_POST['quantity'];
@@ -21,8 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     exit;
 }
 
-$products = $conn->query("SELECT id, model, name FROM products");
-?>
+// 取得產品清單（下拉用）
+if ($conn) {
+    $products = $conn->query("SELECT id, model, name FROM products");
+}
 
 <!DOCTYPE html>
 <html>

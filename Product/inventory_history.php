@@ -2,45 +2,51 @@
 include '../db.php';
 include '../nav.php';
 
+// 預設結果為空陣列（避免前面沒資料庫時報錯）
+$result = false;
+
 // 處理 GET 篩選條件
 $note_keyword = $_GET['note'] ?? '';
 $type_filter = $_GET['type'] ?? 'all';
 
-// 組合 SQL 條件
-$where = [];
-$params = [];
-$types = '';
+if ($conn) {
+    // 組合 SQL 條件
+    $where = [];
+    $params = [];
+    $types = '';
 
-if (!empty($note_keyword)) {
-    $where[] = "l.note LIKE ?";
-    $params[] = '%' . $note_keyword . '%';
-    $types .= 's';
-}
-if ($type_filter === 'in' || $type_filter === 'out') {
-    $where[] = "l.change_type = ?";
-    $params[] = $type_filter;
-    $types .= 's';
-}
+    if (!empty($note_keyword)) {
+        $where[] = "l.note LIKE ?";
+        $params[] = '%' . $note_keyword . '%';
+        $types .= 's';
+    }
+    if ($type_filter === 'in' || $type_filter === 'out') {
+        $where[] = "l.change_type = ?";
+        $params[] = $type_filter;
+        $types .= 's';
+    }
 
-$where_clause = $where ? "WHERE " . implode(" AND ", $where) : "";
+    $where_clause = $where ? "WHERE " . implode(" AND ", $where) : "";
 
-$sql = "
-    SELECT l.*, p.model
-    FROM inventory_logs l
-    JOIN products p ON l.product_id = p.id
-    $where_clause
-    ORDER BY l.created_at DESC
-";
+    $sql = "
+        SELECT l.*, p.model
+        FROM inventory_logs l
+        JOIN products p ON l.product_id = p.id
+        $where_clause
+        ORDER BY l.created_at DESC
+    ";
 
-if ($params) {
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $result = $stmt->get_result();
-} else {
-    $result = $conn->query($sql);
+    if ($params) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } else {
+        $result = $conn->query($sql);
+    }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="zh-TW">

@@ -2,15 +2,17 @@
 include '../db.php';
 include '../nav.php';
 
-// 預設結果為空陣列（避免前面沒資料庫時報錯）
-$result = false;
+// 假資料（在資料庫失敗時用）
+$fake_logs = [
+  ['model' => 'A001', 'change_type' => 'in', 'quantity' => 10, 'unit_cost' => 100, 'note' => '首批進貨', 'created_at' => '2025-07-01 10:00:00'],
+  ['model' => 'A001', 'change_type' => 'out', 'quantity' => 3, 'unit_cost' => 100, 'note' => '夜市銷售', 'created_at' => '2025-07-03 15:20:00'],
+];
 
-// 處理 GET 篩選條件
+$result = false;
 $note_keyword = $_GET['note'] ?? '';
 $type_filter = $_GET['type'] ?? 'all';
 
 if ($conn) {
-    // 組合 SQL 條件
     $where = [];
     $params = [];
     $types = '';
@@ -20,13 +22,14 @@ if ($conn) {
         $params[] = '%' . $note_keyword . '%';
         $types .= 's';
     }
+
     if ($type_filter === 'in' || $type_filter === 'out') {
         $where[] = "l.change_type = ?";
         $params[] = $type_filter;
         $types .= 's';
     }
 
-    $where_clause = $where ? "WHERE " . implode(" AND ", $where) : "";
+    $where_clause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
     $sql = "
         SELECT l.*, p.model
@@ -38,15 +41,16 @@ if ($conn) {
 
     if ($params) {
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param($types, ...$params);
-        $stmt->execute();
-        $result = $stmt->get_result();
+        if ($stmt) {
+            $stmt->bind_param($types, ...$params);
+            $stmt->execute();
+            $result = $stmt->get_result();
+        }
     } else {
         $result = $conn->query($sql);
     }
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -91,34 +95,55 @@ if ($conn) {
         </tr>
       </thead>
       <tbody>
-        <?php while ($row = $result->fetch_assoc()):
-          $is_in = $row['change_type'] === 'in';
-          $unit_cost = $is_in ? $row['unit_cost'] : null;
-          $total_cost = $is_in ? $unit_cost * $row['quantity'] : null;
-          $type_label = $is_in
-              ? '<span class="badge bg-success">進貨</span>'
-              : '<span class="badge bg-danger">出貨</span>';
-        ?>
-        <tr>
-          <td><?= htmlspecialchars($row['model']) ?></td>
-          <td><?= $type_label ?></td>
-          <td><?= $row['quantity'] ?></td>
-          <td><?= $is_in ? '$' . number_format($unit_cost, 2) : '-' ?></td>
-          <td><?= $is_in ? '$' . number_format($total_cost, 2) : '-' ?></td>
-          <td><?= htmlspecialchars($row['note']) ?></td>
-          <td><?= $row['created_at'] ?></td>
-          <td>
-            <a href="delete_inventory.php?id=<?= $row['id'] ?>"
-               class="btn btn-sm btn-outline-danger"
-               onclick="return confirm('確定要刪除這筆紀錄嗎？');">
-               刪除
-            </a>
-          </td>
-          <?php if ($type_filter === 'out'): ?>
-            <td><input type="checkbox" class="form-check-input"></td>
-          <?php endif; ?>
-        </tr>
-        <?php endwhile; ?>
+        <?php if ($result): ?>
+          <?php while ($row = $result->fetch_assoc()):
+            $is_in = $row['change_type'] === 'in';
+            $unit_cost = $is_in ? $row['unit_cost'] : null;
+            $total_cost = $is_in ? $unit_cost * $row['quantity'] : null;
+            $type_label = $is_in
+                ? '<span class="badge bg-success">進貨</span>'
+                : '<span class="badge bg-danger">出貨</span>';
+          ?>
+          <tr>
+            <td><?= htmlspecialchars($row['model']) ?></td>
+            <td><?= $type_label ?></td>
+            <td><?= $row['quantity'] ?></td>
+            <td><?= $is_in ? '$' . number_format($unit_cost, 2) : '-' ?></td>
+            <td><?= $is_in ? '$' . number_format($total_cost, 2) : '-' ?></td>
+            <td><?= htmlspecialchars($row['note']) ?></td>
+            <td><?= $row['created_at'] ?></td>
+            <td>
+              <a href="delete_inventory.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('確定要刪除這筆紀錄嗎？');">刪除</a>
+            </td>
+            <?php if ($type_filter === 'out'): ?>
+              <td><input type="checkbox" class="form-check-input"></td>
+            <?php endif; ?>
+          </tr>
+          <?php endwhile; ?>
+        <?php else: ?>
+          <?php foreach ($fake_logs as $row): 
+            $is_in = $row['change_type'] === 'in';
+            $unit_cost = $is_in ? $row['unit_cost'] : null;
+            $total_cost = $is_in ? $unit_cost * $row['quantity'] : null;
+            $type_label = $is_in
+                ? '<span class="badge bg-success">進貨</span>'
+                : '<span class="badge bg-danger">出貨</span>';
+          ?>
+          <tr>
+            <td><?= htmlspecialchars($row['model']) ?></td>
+            <td><?= $type_label ?></td>
+            <td><?= $row['quantity'] ?></td>
+            <td><?= $is_in ? '$' . number_format($unit_cost, 2) : '-' ?></td>
+            <td><?= $is_in ? '$' . number_format($total_cost, 2) : '-' ?></td>
+            <td><?= htmlspecialchars($row['note']) ?></td>
+            <td><?= $row['created_at'] ?></td>
+            <td><span class="text-muted">（無操作）</span></td>
+            <?php if ($type_filter === 'out'): ?>
+              <td><input type="checkbox" class="form-check-input" disabled></td>
+            <?php endif; ?>
+          </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </tbody>
     </table>
   </div>

@@ -1,4 +1,4 @@
-<?php $base = "/inventory-system/"; ?>
+<?php $base = "/"; ?>
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4 shadow-sm">
   <a class="navbar-brand" href="<?= $base ?>dashboard.php">📊 管理系統</a>

@@ -1,4 +1,13 @@
+# 開啟 rewrite 引擎
 RewriteEngine On
+
+# 若是實體檔案或資料夾，則不 rewrite
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.php [QSA,L]
+
+# 其他請求導向 index.php（如果你想讓資料夾可以進入）
+# 若你不想 redirect 所有路徑，可把以下註解掉
+# RewriteRule ^ index.php [QSA,L]
+
+# 禁止目錄列表列出檔案
+Options -Indexes

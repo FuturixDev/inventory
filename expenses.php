@@ -2,19 +2,19 @@
 include 'db.php';
 include 'nav.php';
 
-// 如果有資料庫連線，執行查詢；否則給一個假的資料列表
-$res = false;
+// 🔸 模擬資料（無資料庫時用）
+$fake_expenses = [
+  ['category' => '房租', 'amount' => 12000, 'note' => '7 月租金', 'date' => '2025-07-01'],
+  ['category' => '網路費', 'amount' => 999, 'note' => 'HiNet', 'date' => '2025-07-10'],
+];
 
+// 🔹 正常查詢
+$res = false;
 if ($conn) {
     $res = $conn->query("SELECT * FROM expenses ORDER BY date DESC");
-} else {
-    // 模擬資料
-    $fake_expenses = [
-        ['category' => '網域費用', 'amount' => 800, 'note' => '每年更新費', 'date' => '2025-07-01'],
-        ['category' => '行銷', 'amount' => 1500, 'note' => 'IG 廣告', 'date' => '2025-06-28'],
-    ];
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -47,18 +47,30 @@ if ($conn) {
         </tr>
       </thead>
       <tbody>
+      <?php if ($res): ?>
         <?php while($row = $res->fetch_assoc()): ?>
-        <tr>
-          <td><?= htmlspecialchars($row['category']) ?></td>
-          <td>$<?= number_format($row['amount'], 2) ?></td>
-          <td><?= htmlspecialchars($row['note']) ?></td>
-          <td><?= $row['date'] ?></td>
-          <td>
-            <a href="edit_expense.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-warning">編輯</a>
-            <a href="delete_expense.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('確定要刪除這筆支出嗎？');">刪除</a>
-          </td>
-        </tr>
+          <tr>
+            <td><?= htmlspecialchars($row['category']) ?></td>
+            <td>$<?= number_format($row['amount'], 2) ?></td>
+            <td><?= htmlspecialchars($row['note']) ?></td>
+            <td><?= $row['date'] ?></td>
+            <td>
+              <a href="edit_expense.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-warning">編輯</a>
+              <a href="delete_expense.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('確定要刪除這筆支出嗎？');">刪除</a>
+            </td>
+          </tr>
         <?php endwhile; ?>
+      <?php else: ?>
+        <?php foreach ($fake_expenses as $row): ?>
+          <tr>
+            <td><?= htmlspecialchars($row['category']) ?></td>
+            <td>$<?= number_format($row['amount'], 2) ?></td>
+            <td><?= htmlspecialchars($row['note']) ?></td>
+            <td><?= $row['date'] ?></td>
+            <td><span class="text-muted">（無操作）</span></td>
+          </tr>
+        <?php endforeach; ?>
+      <?php endif; ?>
       </tbody>
     </table>
   </div>

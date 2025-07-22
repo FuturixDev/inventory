@@ -27,7 +27,7 @@ if ($conn && $_SERVER['REQUEST_METHOD'] == 'POST') {
 if ($conn) {
     $products = $conn->query("SELECT id, model, name FROM products");
 }
-
+?>
 <!DOCTYPE html>
 <html>
 <head>

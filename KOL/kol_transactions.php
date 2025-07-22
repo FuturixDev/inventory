@@ -2,7 +2,9 @@
 include '../db.php';
 include '../nav.php';
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+$kols = false; // 預設為 false，避免後面 fetch 報錯
+
+if ($conn && $_SERVER['REQUEST_METHOD'] == 'POST') {
     $kol_id = $_POST['kol_id'];
     $type = $_POST['type'];
     $desc = $_POST['description'];
@@ -10,6 +12,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $date = $_POST['date'];
 
     $stmt = $conn->prepare("INSERT INTO kol_transactions (kol_id, type, description, amount, date) VALUES (?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        die("❌ 資料寫入失敗：" . $conn->error);
+    }
+
     $stmt->bind_param("issds", $kol_id, $type, $desc, $amount, $date);
     $stmt->execute();
 
@@ -17,19 +23,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     exit;
 }
 
-$kols = $conn->query("SELECT id, name FROM kols");
+// 取得所有 KOL 名單（下拉選單）
+if ($conn) {
+    $kols = $conn->query("SELECT id, name FROM kols");
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>➕ 新增合作紀錄</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
-
 
 <div class="container py-4">
   <h2 class="text-center mb-4">➕ 新增合作紀錄</h2>
@@ -40,9 +47,13 @@ $kols = $conn->query("SELECT id, name FROM kols");
       <label class="form-label">KOL 名稱</label>
       <select name="kol_id" class="form-select" required>
         <option value="">請選擇 KOL</option>
-        <?php while ($k = $kols->fetch_assoc()): ?>
-        <option value="<?= $k['id'] ?>"><?= htmlspecialchars($k['name']) ?></option>
-        <?php endwhile; ?>
+        <?php if ($kols): ?>
+          <?php while ($k = $kols->fetch_assoc()): ?>
+            <option value="<?= $k['id'] ?>"><?= htmlspecialchars($k['name']) ?></option>
+          <?php endwhile; ?>
+        <?php else: ?>
+            <option value="">⚠ 無法取得 KOL 名單</option>
+        <?php endif; ?>
       </select>
     </div>
 
@@ -72,13 +83,16 @@ $kols = $conn->query("SELECT id, name FROM kols");
 
     <!-- 提交按鈕 -->
     <div class="mb-3 d-flex gap-2">
-      <button type="submit" class="btn btn-success">✅ 送出</button>
+      <button type="submit" class="btn btn-success" <?= $conn ? '' : 'disabled' ?>>✅ 送出</button>
       <a href="kol_transactions.php" class="btn btn-secondary">← 返回紀錄</a>
     </div>
+
+    <?php if (!$conn): ?>
+      <div class="alert alert-danger">❌ 無法連接資料庫，表單已停用</div>
+    <?php endif; ?>
   </form>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
- 

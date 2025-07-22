@@ -2,7 +2,18 @@
 include 'db.php';
 include 'nav.php';
 
-$res = $conn->query("SELECT * FROM expenses ORDER BY date DESC");
+// 如果有資料庫連線，執行查詢；否則給一個假的資料列表
+$res = false;
+
+if ($conn) {
+    $res = $conn->query("SELECT * FROM expenses ORDER BY date DESC");
+} else {
+    // 模擬資料
+    $fake_expenses = [
+        ['category' => '網域費用', 'amount' => 800, 'note' => '每年更新費', 'date' => '2025-07-01'],
+        ['category' => '行銷', 'amount' => 1500, 'note' => 'IG 廣告', 'date' => '2025-06-28'],
+    ];
+}
 ?>
 
 <!DOCTYPE html>

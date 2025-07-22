@@ -74,6 +74,7 @@ if (!$conn) {
     }
 }
 
+?>
 
 <!DOCTYPE html>
 <html lang="zh-TW">

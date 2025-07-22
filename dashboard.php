@@ -1,4 +1,5 @@
 <?php
+include 'db.php';   // 正確引入 $conn
 $total_stock = 0;
 $total_cost = 0;
 $total_income = 0;

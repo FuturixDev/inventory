@@ -1,6 +1,54 @@
 <?php
 include 'db.php';
+$total_products = 0;
+$total_stock = 0;
+$total_income = 0;
+$total_expense = 0;
+$total_profit = 0;
 
+if ($conn) {
+    // 所有資料庫查詢放在這裡面執行
+    $res1 = $conn->query("SELECT COUNT(*) AS total FROM products");
+    $total_products = $res1->fetch_assoc()['total'] ?? 0;
+
+    $res2 = $conn->query("
+      SELECT SUM(CASE WHEN change_type = 'in' THEN quantity ELSE -quantity END) AS total_stock
+      FROM inventory_logs
+    ");
+    $total_stock = $res2->fetch_assoc()['total_stock'] ?? 0;
+
+    $res3 = $conn->query("SELECT SUM(price * quantity) AS income FROM sales");
+    $total_income = $res3->fetch_assoc()['income'] ?? 0;
+
+    $res4 = $conn->query("
+      SELECT
+        IFNULL((SELECT SUM(amount) FROM kol_transactions WHERE type IN ('paid','commission')), 0) +
+        IFNULL((SELECT SUM(amount) FROM expenses), 0) AS total_expense
+    ");
+    $total_expense = $res4->fetch_assoc()['total_expense'] ?? 0;
+
+    $total_cost_of_goods_sold = 0;
+
+    $res = $conn->query("SELECT product_id, SUM(quantity) AS qty FROM sales GROUP BY product_id");
+
+    while ($row = $res->fetch_assoc()) {
+        $product_id = $row['product_id'];
+        $qty = $row['qty'];
+
+        $stmt = $conn->prepare("
+            SELECT SUM(quantity * unit_cost) / SUM(quantity) AS avg_cost
+            FROM inventory_logs
+            WHERE product_id = ? AND change_type = 'in'
+        ");
+        $stmt->bind_param("i", $product_id);
+        $stmt->execute();
+        $avg_cost = $stmt->get_result()->fetch_assoc()['avg_cost'] ?? 0;
+
+        $total_cost_of_goods_sold += $avg_cost * $qty;
+    }
+
+    $total_profit = $total_income - $total_cost_of_goods_sold - $total_expense;
+}
 // 產品總數
 $res1 = $conn->query("SELECT COUNT(*) AS total FROM products");
 $total_products = $res1->fetch_assoc()['total'] ?? 0;
